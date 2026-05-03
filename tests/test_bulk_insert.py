@@ -1,6 +1,6 @@
 import time
 
-from sqlalchemy import insert
+from sqlalchemy import insert, text
 from sqlalchemy.orm import Session
 
 from models import AppUser
@@ -39,3 +39,19 @@ def test_orm_bulk_insert_fast_executemany(fast_engine, user_rows):
     elapsed = time.perf_counter() - start
 
     print(f"\n[orm bulk insert + fast_executemany] elapsed: {elapsed:.3f}s")
+
+
+def test_raw_sql_bulk_insert(engine, user_rows):
+    """Insert 50k rows using session.execute(text(...)) with raw SQL."""
+    sql = text(
+        "INSERT INTO dbo.AppUser (FirstName, LastName, Birthday, Gender, Ethnicity)"
+        " VALUES (:FirstName, :LastName, :Birthday, :Gender, :Ethnicity)"
+    )
+
+    start = time.perf_counter()
+    with Session(engine) as session:
+        session.execute(sql, user_rows)
+        session.commit()
+    elapsed = time.perf_counter() - start
+
+    print(f"\n[raw sql bulk insert] elapsed: {elapsed:.3f}s")
