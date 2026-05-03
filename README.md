@@ -14,12 +14,13 @@ See [`docs/bulk-insert-performance-analysis.md`](docs/bulk-insert-performance-an
 |---|----------|-------------|
 | 1 | `Session.add_all()` | Standard ORM unit-of-work; tracks every object |
 | 2 | `Session.execute(insert(Model), rows)` | SQLAlchemy 2.0 ORM bulk insert (`insertmanyvalues`) |
-| 3 | ORM bulk insert + engine flags | `fast_executemany` (MSSQL) · `executemany_mode=values_plus_batch` (psycopg2) · pipeline mode (psycopg3) |
+| 3 | ORM bulk insert + engine flags | `fast_executemany` (MSSQL/pyodbc) · `use_insertmanyvalues` (MSSQL/pymssql) · `executemany_mode=values_plus_batch` (psycopg2) · pipeline mode (psycopg3) |
 | 4 | `Session.execute(text("INSERT …"), rows)` | Raw SQL; bypasses ORM entirely, hits `cursor.executemany()` directly |
 
-Each strategy is tested against three driver/engine combinations:
+Each strategy is tested against four driver/engine combinations:
 
 - **`tests/mssql/`** — SQL Server 2022 via `pyodbc` + ODBC Driver 18
+- **`tests/mssql_pymssql/`** — SQL Server 2022 via `pymssql`
 - **`tests/postgres/`** — PostgreSQL 16 via `psycopg2`
 - **`tests/psycopg3/`** — PostgreSQL 16 via `psycopg3`
 
@@ -30,10 +31,12 @@ sql-bulk/
 ├── models.py               # SQLAlchemy ORM model (dbo.AppUser)
 ├── main.py                 # Quick smoke-test: insert + retrieve one row
 ├── mssql/                  # MSSQL engine factory (pyodbc)
+├── mssql_pymssql/          # MSSQL engine factory (pymssql)
 ├── postgres/               # PostgreSQL engine factory (psycopg2)
 ├── psycopg3/               # PostgreSQL engine factory (psycopg3)
 ├── tests/
-│   ├── mssql/              # Bulk insert benchmarks — SQL Server
+│   ├── mssql/              # Bulk insert benchmarks — SQL Server (pyodbc)
+│   ├── mssql_pymssql/      # Bulk insert benchmarks — SQL Server (pymssql)
 │   ├── postgres/           # Bulk insert benchmarks — PostgreSQL (psycopg2)
 │   └── psycopg3/           # Bulk insert benchmarks — PostgreSQL (psycopg3)
 ├── docs/
@@ -48,7 +51,7 @@ sql-bulk/
 
 - **Python 3.13+** and **[uv](https://docs.astral.sh/uv/)**
 - **Docker** (for the database containers)
-- **ODBC Driver 18 for SQL Server** — [install guide](https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server)
+- **ODBC Driver 18 for SQL Server** — [install guide](https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server) *(required only for the `mssql/` pyodbc suite)*
 
 ## Setup
 
@@ -81,9 +84,10 @@ uv run pytest -s
 Run a specific suite:
 
 ```bash
-uv run pytest tests/mssql    -s   # SQL Server
-uv run pytest tests/postgres -s   # PostgreSQL via psycopg2
-uv run pytest tests/psycopg3 -s   # PostgreSQL via psycopg3
+uv run pytest tests/mssql         -s   # SQL Server via pyodbc
+uv run pytest tests/mssql_pymssql -s   # SQL Server via pymssql
+uv run pytest tests/postgres      -s   # PostgreSQL via psycopg2
+uv run pytest tests/psycopg3      -s   # PostgreSQL via psycopg3
 ```
 
 The `-s` flag lets timing output printed by each test appear in the terminal.
