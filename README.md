@@ -1,4 +1,4 @@
-# sql-bulk
+# sql-alchemy-insert-tests
 
 A benchmarking project that compares SQLAlchemy bulk insert strategies across **SQL Server** and **PostgreSQL**, measuring the real-world performance differences between common insertion patterns and explaining *why* they behave the way they do.
 
