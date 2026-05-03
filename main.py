@@ -41,6 +41,11 @@ def _pg_url() -> str:
     return f"postgresql+psycopg2://{PG_USER}:{password}@{PG_SERVER}:{PG_PORT}/{PG_NAME}"
 
 
+def _pg3_url() -> str:
+    password = quote_plus(PG_PASSWORD)
+    return f"postgresql+psycopg://{PG_USER}:{password}@{PG_SERVER}:{PG_PORT}/{PG_NAME}"
+
+
 def get_engine():
     return create_engine(_odbc_url())
 
@@ -55,6 +60,16 @@ def get_pg_engine():
 
 def get_pg_fast_engine():
     return create_engine(_pg_url(), executemany_mode="values_plus_batch")
+
+
+def get_pg3_engine():
+    return create_engine(_pg3_url())
+
+
+def get_pg3_fast_engine():
+    # psycopg3 pipeline mode batches round-trips for bulk insert performance
+    return create_engine(_pg3_url()).execution_options(psycopg_pipeline_mode=True)
+
 
 
 def main():
