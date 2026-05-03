@@ -17,6 +17,12 @@ DB_USER = os.getenv("DB_USER", "sa")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 ODBC_DRIVER = os.getenv("ODBC_DRIVER", "ODBC Driver 18 for SQL Server")
 
+PG_SERVER = os.getenv("PG_SERVER", "localhost")
+PG_PORT = os.getenv("PG_PORT", "5432")
+PG_NAME = os.getenv("PG_NAME", "postgres")
+PG_USER = os.getenv("PG_USER", "postgres")
+PG_PASSWORD = os.getenv("PG_PASSWORD", "")
+
 
 def _odbc_url() -> str:
     odbc_params = quote_plus(
@@ -30,12 +36,25 @@ def _odbc_url() -> str:
     return f"mssql+pyodbc:///?odbc_connect={odbc_params}"
 
 
+def _pg_url() -> str:
+    password = quote_plus(PG_PASSWORD)
+    return f"postgresql+psycopg2://{PG_USER}:{password}@{PG_SERVER}:{PG_PORT}/{PG_NAME}"
+
+
 def get_engine():
     return create_engine(_odbc_url())
 
 
 def get_fast_engine():
     return create_engine(_odbc_url(), fast_executemany=True, use_insertmanyvalues=False)
+
+
+def get_pg_engine():
+    return create_engine(_pg_url())
+
+
+def get_pg_fast_engine():
+    return create_engine(_pg_url(), executemany_mode="values_plus_batch")
 
 
 def main():

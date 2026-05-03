@@ -13,5 +13,19 @@ services:
       - ./entrypoint.sh:/entrypoint.sh:ro
     entrypoint: /bin/bash /entrypoint.sh
 
+  postgres:
+    image: postgres:16
+    container_name: sql-bulk-pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "YourStrong@Passw0rd"
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_pg.sql:/docker-entrypoint-initdb.d/init_pg.sql:ro
+
 volumes:
   sqlserver_data:
+  postgres_data:
