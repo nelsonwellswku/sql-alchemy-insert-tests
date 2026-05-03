@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from main import get_pg3_engine, get_pg3_fast_engine
+from psycopg3 import get_pg3_engine, get_pg3_fast_engine
 
 NUM_ROWS = 50_000
 

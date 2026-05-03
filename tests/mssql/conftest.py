@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from main import get_engine, get_fast_engine
+from mssql import get_engine, get_fast_engine
 
 NUM_ROWS = 50_000
 

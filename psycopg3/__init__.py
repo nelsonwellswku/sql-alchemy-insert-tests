@@ -1,0 +1,27 @@
+import os
+from urllib.parse import quote_plus
+
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+
+load_dotenv()
+
+PG_SERVER = os.getenv("PG_SERVER", "localhost")
+PG_PORT = os.getenv("PG_PORT", "5432")
+PG_NAME = os.getenv("PG_NAME", "postgres")
+PG_USER = os.getenv("PG_USER", "postgres")
+PG_PASSWORD = os.getenv("PG_PASSWORD", "")
+
+
+def _pg3_url() -> str:
+    password = quote_plus(PG_PASSWORD)
+    return f"postgresql+psycopg://{PG_USER}:{password}@{PG_SERVER}:{PG_PORT}/{PG_NAME}"
+
+
+def get_pg3_engine():
+    return create_engine(_pg3_url())
+
+
+def get_pg3_fast_engine():
+    # psycopg3 pipeline mode batches round-trips for bulk insert performance
+    return create_engine(_pg3_url()).execution_options(psycopg_pipeline_mode=True)
