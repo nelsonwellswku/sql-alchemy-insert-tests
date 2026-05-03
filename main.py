@@ -35,7 +35,7 @@ def get_engine():
 
 
 def get_fast_engine():
-    return create_engine(_odbc_url(), connect_args={"fast_executemany": True})
+    return create_engine(_odbc_url(), fast_executemany=True, use_insertmanyvalues=False)
 
 
 def main():

@@ -23,7 +23,7 @@ def test_orm_bulk_insert(engine, user_rows):
     """Insert 50k rows using SQLAlchemy 2.0 ORM bulk insert."""
     start = time.perf_counter()
     with Session(engine) as session:
-        session.execute(insert(AppUser), user_rows)
+        session.execute(insert(AppUser).execution_options(render_nulls=True), user_rows)
         session.commit()
     elapsed = time.perf_counter() - start
 
