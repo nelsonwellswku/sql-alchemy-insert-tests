@@ -20,8 +20,3 @@ def _pymssql_url() -> str:
 
 def get_engine():
     return create_engine(_pymssql_url())
-
-
-def get_fast_engine():
-    # use_insertmanyvalues batches rows into multi-row VALUE clauses for speed
-    return create_engine(_pymssql_url(), use_insertmanyvalues=True)

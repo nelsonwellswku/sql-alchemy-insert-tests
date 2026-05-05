@@ -30,5 +30,9 @@ def get_engine():
     return create_engine(_odbc_url())
 
 
-def get_fast_engine():
+def get_fast_executemany_engine():
+    return create_engine(_odbc_url(), fast_executemany=True)
+
+
+def get_fast_executemany_no_imv_engine():
     return create_engine(_odbc_url(), fast_executemany=True, use_insertmanyvalues=False)

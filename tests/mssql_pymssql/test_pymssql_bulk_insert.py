@@ -30,17 +30,6 @@ def test_orm_bulk_insert(engine, user_rows):
     print(f"\n[pymssql orm bulk insert] elapsed: {elapsed:.3f}s")
 
 
-def test_orm_bulk_insert_insertmanyvalues(fast_engine, user_rows):
-    """Insert 50k rows using ORM bulk insert with use_insertmanyvalues enabled."""
-    start = time.perf_counter()
-    with Session(fast_engine) as session:
-        session.execute(insert(AppUser), user_rows)
-        session.commit()
-    elapsed = time.perf_counter() - start
-
-    print(f"\n[pymssql orm bulk insert + insertmanyvalues] elapsed: {elapsed:.3f}s")
-
-
 def test_raw_sql_bulk_insert(engine, user_rows):
     """Insert 50k rows using session.execute(text(...)) with raw SQL."""
     sql = text(
