@@ -20,8 +20,3 @@ def _pg3_url() -> str:
 
 def get_pg3_engine():
     return create_engine(_pg3_url())
-
-
-def get_pg3_fast_engine():
-    # psycopg3 pipeline mode batches round-trips for bulk insert performance
-    return create_engine(_pg3_url()).execution_options(psycopg_pipeline_mode=True)

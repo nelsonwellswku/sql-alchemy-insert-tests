@@ -20,7 +20,3 @@ def _pg_url() -> str:
 
 def get_pg_engine():
     return create_engine(_pg_url())
-
-
-def get_pg_fast_engine():
-    return create_engine(_pg_url(), executemany_mode="values_plus_batch")

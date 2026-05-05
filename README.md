@@ -4,37 +4,47 @@ A benchmarking project that compares SQLAlchemy bulk insert strategies across **
 
 ## Purpose
 
-When inserting large volumes of rows with SQLAlchemy, the choice of method matters far more than most developers expect. This project makes that concrete by timing four different strategies at 50,000 rows each against both database engines and documenting the root causes behind surprising results (NULL-value fragmentation, silent `fast_executemany` bypass, round-trip overhead, etc.).
+When inserting large volumes of rows with SQLAlchemy, the choice of method matters far more than most developers expect. This project makes that concrete by timing different strategies at 50,000 rows each across multiple database drivers, and documenting the root causes behind surprising results (NULL-value fragmentation, silent `fast_executemany` bypass, round-trip overhead, etc.).
 
 See [`docs/bulk-insert-performance-analysis.md`](docs/bulk-insert-performance-analysis.md) for the full analysis.
 
 ## Insert Strategies Compared
 
+All four driver suites run the same three base tests:
+
 | # | Strategy | Description |
 |---|----------|-------------|
 | 1 | `Session.add_all()` | Standard ORM unit-of-work; tracks every object |
 | 2 | `Session.execute(insert(Model), rows)` | SQLAlchemy 2.0 ORM bulk insert (`insertmanyvalues`) |
-| 3 | ORM bulk insert + engine flags | `fast_executemany` (MSSQL/pyodbc) · `use_insertmanyvalues` (MSSQL/pymssql) · `executemany_mode=values_plus_batch` (psycopg2) · pipeline mode (psycopg3) |
-| 4 | `Session.execute(text("INSERT …"), rows)` | Raw SQL; bypasses ORM entirely, hits `cursor.executemany()` directly |
+| 3 | `Session.execute(text("INSERT …"), rows)` | Raw SQL via SQLAlchemy; bypasses ORM, hits `cursor.executemany()` |
 
-Each strategy is tested against four driver/engine combinations:
+The **SQL Server / pyodbc** suite (`tests/mssql/`) adds three more tests that isolate `fast_executemany` behavior:
 
-- **`tests/mssql/`** — SQL Server 2022 via `pyodbc` + ODBC Driver 18
-- **`tests/mssql_pymssql/`** — SQL Server 2022 via `pymssql`
-- **`tests/postgres/`** — PostgreSQL 16 via `psycopg2`
-- **`tests/psycopg3/`** — PostgreSQL 16 via `psycopg3`
+| # | Strategy | Description |
+|---|----------|-------------|
+| 4 | ORM bulk insert + `fast_executemany=True` | Engine-level flag; SQLAlchemy may still bypass `executemany` for IDENTITY columns |
+| 5 | ORM bulk insert + `fast_executemany=True, use_insertmanyvalues=False` | Forces `executemany` path by disabling `insertmanyvalues` |
+| 6 | Raw pyodbc cursor + `cursor.fast_executemany = True` | Bypasses all SQLAlchemy layers; sets the flag directly on the pyodbc cursor and calls `cursor.executemany()` |
+
+## Driver Suites
+
+- **`tests/mssql/`** — SQL Server 2022 via `pyodbc` + ODBC Driver 18 (6 tests)
+- **`tests/mssql_pymssql/`** — SQL Server 2022 via `pymssql` (3 tests)
+- **`tests/postgres/`** — PostgreSQL 16 via `psycopg2` (3 tests)
+- **`tests/psycopg3/`** — PostgreSQL 16 via `psycopg3` (3 tests)
 
 ## Project Structure
 
 ```
-sql-bulk/
+sql-alchemy-insert-tests/
 ├── models.py               # SQLAlchemy ORM model (dbo.AppUser)
 ├── main.py                 # Quick smoke-test: insert + retrieve one row
-├── mssql/                  # MSSQL engine factory (pyodbc)
+├── mssql/                  # MSSQL engine factories (pyodbc)
 ├── mssql_pymssql/          # MSSQL engine factory (pymssql)
 ├── postgres/               # PostgreSQL engine factory (psycopg2)
 ├── psycopg3/               # PostgreSQL engine factory (psycopg3)
 ├── tests/
+│   ├── conftest.py         # Shared fixtures (user_rows)
 │   ├── mssql/              # Bulk insert benchmarks — SQL Server (pyodbc)
 │   ├── mssql_pymssql/      # Bulk insert benchmarks — SQL Server (pymssql)
 │   ├── postgres/           # Bulk insert benchmarks — PostgreSQL (psycopg2)
@@ -42,7 +52,8 @@ sql-bulk/
 ├── docs/
 │   └── bulk-insert-performance-analysis.md   # Detailed findings
 ├── docker-compose.yml      # Spins up SQL Server 2022 + PostgreSQL 16
-├── init.sql                # Creates dbo.AppUser on SQL Server
+├── entrypoint.sh           # Waits for SQL Server readiness, then runs init.sql
+├── init.sql                # Creates dbo.AppUser on SQL Server (in TestDb)
 ├── init_pg.sql             # Creates dbo.AppUser on PostgreSQL
 └── .env.example            # Environment variable template
 ```
@@ -58,7 +69,7 @@ sql-bulk/
 ```bash
 # 1. Clone the repo
 git clone <repo-url>
-cd sql-bulk
+cd sql-alchemy-insert-tests
 
 # 2. Copy and edit the environment file
 cp .env.example .env
@@ -71,7 +82,7 @@ docker compose up -d
 uv sync
 ```
 
-The Docker containers automatically run `init.sql` / `init_pg.sql` on first start to create the `dbo.AppUser` table.
+The Docker containers automatically run `init.sql` / `init_pg.sql` on first start to create the `dbo.AppUser` table in the `TestDb` database (SQL Server) and in the `dbo` schema (PostgreSQL).
 
 ## Running the Benchmarks
 
@@ -97,7 +108,8 @@ Each test suite inserts **50,000 rows** and reports elapsed time per strategy.
 ## Key Findings
 
 1. **Raw SQL is fastest** — `session.execute(text("INSERT …"), rows)` bypasses the ORM and `OUTPUT INSERTED`, hitting `cursor.executemany()` directly with no overhead.
-2. **`fast_executemany` has zero effect on ORM inserts with IDENTITY columns** — SQLAlchemy routes those through `insertmanyvalues` (which calls `cursor.execute()`), so `cursor.executemany()` is never invoked.
-3. **NULL values fragment ORM bulk batches** — rows with different combinations of `None` columns are split into separate INSERT batches, significantly increasing round-trips.
+2. **`fast_executemany` has zero effect on ORM inserts with IDENTITY columns** — SQLAlchemy routes those through `insertmanyvalues` (which calls `cursor.execute()`), so `cursor.executemany()` is never invoked. Setting `use_insertmanyvalues=False` forces the `executemany` path and makes the flag effective.
+3. **The lowest-level path is the raw pyodbc cursor** — `engine.raw_connection()` + `cursor.fast_executemany = True` + `cursor.executemany()` bypasses every SQLAlchemy layer.
+4. **NULL values fragment ORM bulk batches** — rows with different combinations of `None` columns are split into separate INSERT batches, significantly increasing round-trips.
 
 Full root-cause analysis and fix recommendations: [`docs/bulk-insert-performance-analysis.md`](docs/bulk-insert-performance-analysis.md).
